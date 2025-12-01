@@ -1,0 +1,51 @@
+{
+  "enabled_adapters": ["gemini", "copilot"],
+  "timeout_seconds": 60,
+  "parallel_execution": true,
+
+  "conflict_resolution": {
+    "policy": "conservative",
+    "weights": { "gemini": 1.0, "copilot": 1.0 }
+  },
+
+  "debounce": {
+    "enabled": true,
+    "seconds": 3,
+    "stages": ["code"]
+  },
+
+  "override": {
+    "enabled": true,
+    "keywords": ["/review-skip", "검열 스킵"],
+    "require_audit_log": true
+  },
+
+  "security": {
+    "mask_sensitive_data": true,
+    "allowed_file_extensions": [".java", ".kt", ".xml", ".yml", ".yaml", ".json", ".properties", ".py", ".ts", ".js"],
+    "sensitive_patterns": ["password", "api_key", "secret", "token", "credential"],
+    "validate_llm_response": true
+  },
+
+  "logging": {
+    "audit_enabled": true,
+    "metrics_enabled": true,
+    "retention_days": 30,
+    "log_dir": "~/.claude/hooks/logs"
+  },
+
+  "rework_settings": {
+    "max_retries": 3,
+    "exponential_backoff": true,
+    "backoff_base_seconds": 1,
+    "critical_triggers": ["security", "injection", "FAIL", "CRITICAL"],
+    "high_triggers": ["버그", "bug", "누락", "missing", "HIGH"]
+  },
+
+  "stage_settings": {
+    "plan": { "enabled": true, "max_retries": 2, "debounce": false },
+    "code": { "enabled": true, "max_retries": 3, "debounce": true },
+    "test": { "enabled": true, "max_retries": 2, "debounce": false },
+    "final": { "enabled": true, "max_retries": 2, "debounce": false }
+  }
+}
