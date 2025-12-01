@@ -1,0 +1,77 @@
+{
+  "enabled_adapters": ["gemini"],
+  "timeout_seconds": 60,
+  "parallel_execution": true,
+
+  "gemini": {
+    "use_api": true,
+    "model": "gemini-2.5-flash-lite",
+    "api_key": "${GEMINI_API_KEY}"
+  },
+
+  "debate": {
+    "enabled": true,
+    "trigger_on_disagreement": true,
+    "trigger_on_high_severity": true,
+    "max_rounds": 2,
+    "participants": ["gemini", "claude_self"]
+  },
+
+  "completion_review": {
+    "enabled": true,
+    "include_self_review": true,
+    "include_external_review": true,
+    "use_subagent": true,
+    "max_reviews": 3
+  },
+
+  "intent_extraction": {
+    "max_chars": 10000
+  },
+
+  "conflict_resolution": {
+    "policy": "conservative",
+    "weights": { "gemini": 1.0, "claude_self": 0.8 }
+  },
+
+  "debounce": {
+    "enabled": true,
+    "seconds": 3,
+    "stages": ["code"]
+  },
+
+  "override": {
+    "enabled": true,
+    "keywords": ["/review-skip", "검열 스킵"],
+    "require_audit_log": true
+  },
+
+  "security": {
+    "mask_sensitive_data": true,
+    "allowed_file_extensions": [".java", ".kt", ".xml", ".yml", ".yaml", ".json", ".properties", ".py", ".ts", ".js"],
+    "sensitive_patterns": ["password", "api_key", "secret", "token", "credential"],
+    "validate_llm_response": true
+  },
+
+  "logging": {
+    "audit_enabled": true,
+    "metrics_enabled": true,
+    "retention_days": 30,
+    "log_dir": "~/.claude/hooks/logs"
+  },
+
+  "rework_settings": {
+    "max_retries": 3,
+    "exponential_backoff": true,
+    "backoff_base_seconds": 1,
+    "critical_triggers": ["security", "injection", "FAIL", "CRITICAL"],
+    "high_triggers": ["버그", "bug", "누락", "missing", "HIGH"]
+  },
+
+  "stage_settings": {
+    "plan": { "enabled": true, "max_retries": 2, "debounce": false },
+    "code": { "enabled": true, "max_retries": 3, "debounce": true },
+    "test": { "enabled": true, "max_retries": 2, "debounce": false },
+    "final": { "enabled": true, "max_retries": 2, "debounce": false }
+  }
+}

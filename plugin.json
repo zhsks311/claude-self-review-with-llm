@@ -1,0 +1,59 @@
+{
+  "name": "self-review",
+  "version": "1.0.0",
+  "description": "Claude Code 자기검열 시스템 - Gemini, Copilot 등 다중 LLM이 자동으로 코드 검토",
+  "author": "d66hjkxwt9",
+  "repository": "https://github.com/d66hjkxwt9/claude-self-review",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$PLUGIN_DIR/collect-project-context.sh \"$CWD\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "TodoWrite",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$PLUGIN_DIR/review-plan.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$PLUGIN_DIR/review-code.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$PLUGIN_DIR/review-test.sh"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$PLUGIN_DIR/review-final.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

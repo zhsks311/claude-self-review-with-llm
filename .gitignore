@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+*.so
+.venv/
+
+# Claude Code 로컬 설정
+.claude/
+
+# 실제 API 키가 포함된 설정 파일
+settings.json
+
+# 상태/로그 (개인정보 포함 가능)
+state/
+logs/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 백업 파일
+*.backup
