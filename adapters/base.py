@@ -43,6 +43,7 @@ class ReviewResult:
     success: bool = True
     error: Optional[str] = None
     duration_ms: int = 0
+    is_self_review: bool = False  # Claude 셀프 리뷰 여부
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -59,7 +60,8 @@ class ReviewResult:
             ],
             "success": self.success,
             "error": self.error,
-            "duration_ms": self.duration_ms
+            "duration_ms": self.duration_ms,
+            "is_self_review": self.is_self_review
         }
 
 

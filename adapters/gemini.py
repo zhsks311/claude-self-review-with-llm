@@ -1,22 +1,42 @@
 """
-Gemini CLI Adapter
+Gemini API Adapter (v2)
+- REST API 직접 호출 (CLI 대체)
+- 무료 티어: 1500 requests/day
+- 모델: gemini-1.5-flash (빠르고 저렴)
 """
-import subprocess
+import os
+import ssl
 import time
+import json
 import shutil
-from typing import Dict, Any
+import subprocess
+import urllib.request
+import urllib.error
+import certifi
+from typing import Dict, Any, Optional
 
 from .base import LLMAdapter, ReviewResult, Severity
 
 
 class GeminiAdapter(LLMAdapter):
-    """Gemini CLI를 사용한 리뷰 어댑터"""
+    """Gemini API를 사용한 리뷰 어댑터 (v2)"""
+
+    API_BASE = "https://generativelanguage.googleapis.com/v1beta"
+    DEFAULT_MODEL = "gemini-2.5-flash-lite"
 
     def __init__(self, config: Dict[str, Any]):
         super().__init__("gemini", config)
+        gemini_config = config.get("gemini", {})
+        self.api_key = gemini_config.get("api_key") or os.environ.get("GEMINI_API_KEY")
+        self.model = gemini_config.get("model", self.DEFAULT_MODEL)
+        self.use_api = gemini_config.get("use_api", True)
+        # CLI 폴백용
         self.cli_path = shutil.which("gemini")
 
     def is_available(self) -> bool:
+        """API 키 또는 CLI 사용 가능 여부"""
+        if self.use_api and self.api_key:
+            return True
         return self.cli_path is not None
 
     def review(self, prompt: str, context: Dict[str, Any]) -> ReviewResult:
@@ -27,49 +47,45 @@ class GeminiAdapter(LLMAdapter):
                 issues=[],
                 raw_response="",
                 success=False,
-                error="Gemini CLI not found"
+                error="Gemini not available (no API key or CLI)"
             )
 
         start_time = time.time()
+        full_prompt = self._build_prompt(prompt, context)
 
         try:
-            # 컨텍스트를 프롬프트에 포함
-            full_prompt = self._build_prompt(prompt, context)
-
-            # Gemini CLI 호출
-            result = subprocess.run(
-                [self.cli_path, "-p", full_prompt],
-                capture_output=True,
-                text=True,
-                timeout=self.timeout
-            )
+            # API 우선, CLI 폴백
+            if self.use_api and self.api_key:
+                response = self._call_api(full_prompt)
+            else:
+                response = self._call_cli(full_prompt)
 
             duration_ms = int((time.time() - start_time) * 1000)
 
-            if result.returncode != 0:
+            if response is None:
                 return ReviewResult(
                     adapter_name=self.name,
                     severity=Severity.OK,
                     issues=[],
-                    raw_response=result.stderr,
+                    raw_response="",
                     success=False,
-                    error=f"CLI error: {result.stderr}",
+                    error="Empty response from Gemini",
                     duration_ms=duration_ms
                 )
 
-            # 응답 파싱
-            review_result = self.parse_response(result.stdout)
+            review_result = self.parse_response(response)
             review_result.duration_ms = duration_ms
             return review_result
 
-        except subprocess.TimeoutExpired:
+        except urllib.error.HTTPError as e:
+            error_body = e.read().decode('utf-8') if e.fp else str(e)
             return ReviewResult(
                 adapter_name=self.name,
                 severity=Severity.OK,
                 issues=[],
                 raw_response="",
                 success=False,
-                error=f"Timeout after {self.timeout}s",
+                error=f"API error {e.code}: {error_body}",
                 duration_ms=int((time.time() - start_time) * 1000)
             )
         except Exception as e:
@@ -82,6 +98,55 @@ class GeminiAdapter(LLMAdapter):
                 error=str(e),
                 duration_ms=int((time.time() - start_time) * 1000)
             )
+
+    def _call_api(self, prompt: str) -> Optional[str]:
+        """Gemini REST API 직접 호출"""
+        url = f"{self.API_BASE}/models/{self.model}:generateContent?key={self.api_key}"
+
+        payload = {
+            "contents": [{
+                "parts": [{"text": prompt}]
+            }],
+            "generationConfig": {
+                "temperature": 0.1,
+                "maxOutputTokens": 2000
+            }
+        }
+
+        data = json.dumps(payload).encode('utf-8')
+        req = urllib.request.Request(
+            url,
+            data=data,
+            headers={"Content-Type": "application/json"}
+        )
+
+        # SSL 컨텍스트 설정 (macOS 인증서 문제 해결)
+        try:
+            ssl_context = ssl.create_default_context(cafile=certifi.where())
+        except Exception:
+            ssl_context = ssl.create_default_context()
+
+        with urllib.request.urlopen(req, timeout=self.timeout, context=ssl_context) as response:
+            result = json.loads(response.read().decode('utf-8'))
+            # Gemini API 응답 구조: candidates[0].content.parts[0].text
+            candidates = result.get("candidates", [])
+            if candidates:
+                parts = candidates[0].get("content", {}).get("parts", [])
+                if parts:
+                    return parts[0].get("text", "")
+            return None
+
+    def _call_cli(self, prompt: str) -> Optional[str]:
+        """Gemini CLI 폴백"""
+        result = subprocess.run(
+            [self.cli_path, "-p", prompt],
+            capture_output=True,
+            text=True,
+            timeout=self.timeout
+        )
+        if result.returncode != 0:
+            raise RuntimeError(f"CLI error: {result.stderr}")
+        return result.stdout
 
     def _build_prompt(self, base_prompt: str, context: Dict[str, Any]) -> str:
         """컨텍스트 정보를 포함한 프롬프트 생성"""

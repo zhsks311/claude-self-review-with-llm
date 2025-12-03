@@ -101,10 +101,40 @@ class StateManager:
             return True
         return False
 
+    # ===== Todo State 관리 =====
+    def get_todo_state(self, session_id: str) -> Dict[str, Any]:
+        """현재 todo 상태 조회"""
+        return self._read_state(session_id, "todo")
+
+    def save_todo_state(self, session_id: str, state: Dict[str, Any]):
+        """todo 상태 저장"""
+        state["updated_at"] = datetime.now().isoformat()
+        self._write_state(session_id, "todo", state)
+
+    # ===== Completion Review 횟수 관리 =====
+    def get_completion_review_count(self, session_id: str) -> int:
+        """완료 검토 횟수 조회 (무한 루프 방지용)"""
+        state = self._read_state(session_id, "todo")
+        return state.get("review_count", 0)
+
+    def increment_completion_review_count(self, session_id: str) -> int:
+        """완료 검토 횟수 증가"""
+        state = self._read_state(session_id, "todo")
+        state["review_count"] = state.get("review_count", 0) + 1
+        state["last_review_at"] = datetime.now().isoformat()
+        self._write_state(session_id, "todo", state)
+        return state["review_count"]
+
+    def reset_completion_review_count(self, session_id: str):
+        """완료 검토 횟수 초기화 (새 작업 시작 시)"""
+        state = self._read_state(session_id, "todo")
+        state["review_count"] = 0
+        self._write_state(session_id, "todo", state)
+
     # ===== 세션 정리 =====
     def cleanup_session(self, session_id: str):
         """세션 종료 시 상태 파일 정리"""
-        for state_type in ["retry", "debounce", "override"]:
+        for state_type in ["retry", "debounce", "override", "todo"]:
             path = self._get_state_path(session_id, state_type)
             lock_path = self._get_lock_path(session_id, state_type)
             if path.exists():
