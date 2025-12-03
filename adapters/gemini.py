@@ -5,6 +5,7 @@ Gemini API Adapter (v2)
 - 모델: gemini-1.5-flash (빠르고 저렴)
 """
 import os
+import sys
 import ssl
 import time
 import json
@@ -12,10 +13,25 @@ import shutil
 import subprocess
 import urllib.request
 import urllib.error
-import certifi
 from typing import Dict, Any, Optional
+from pathlib import Path
+
+# certifi는 선택적 (Windows에서 없을 수 있음)
+try:
+    import certifi
+    HAS_CERTIFI = True
+except ImportError:
+    HAS_CERTIFI = False
 
 from .base import LLMAdapter, ReviewResult, Severity
+
+# API Key Loader 임포트 (상위 디렉토리에서)
+sys.path.insert(0, str(Path(__file__).parent.parent))
+try:
+    from api_key_loader import get_api_key
+except ImportError:
+    def get_api_key(key_name: str, default=None):
+        return os.environ.get(key_name, default)
 
 
 class GeminiAdapter(LLMAdapter):
@@ -27,7 +43,14 @@ class GeminiAdapter(LLMAdapter):
     def __init__(self, config: Dict[str, Any]):
         super().__init__("gemini", config)
         gemini_config = config.get("gemini", {})
-        self.api_key = gemini_config.get("api_key") or os.environ.get("GEMINI_API_KEY")
+
+        # API 키: config > api_key_loader > 환경변수 순서로 시도
+        config_key = gemini_config.get("api_key", "")
+        if config_key and not config_key.startswith("${"):
+            self.api_key = config_key
+        else:
+            self.api_key = get_api_key("GEMINI_API_KEY")
+
         self.model = gemini_config.get("model", self.DEFAULT_MODEL)
         self.use_api = gemini_config.get("use_api", True)
         # CLI 폴백용
@@ -120,9 +143,12 @@ class GeminiAdapter(LLMAdapter):
             headers={"Content-Type": "application/json"}
         )
 
-        # SSL 컨텍스트 설정 (macOS 인증서 문제 해결)
+        # SSL 컨텍스트 설정 (macOS/Windows 인증서 문제 해결)
         try:
-            ssl_context = ssl.create_default_context(cafile=certifi.where())
+            if HAS_CERTIFI:
+                ssl_context = ssl.create_default_context(cafile=certifi.where())
+            else:
+                ssl_context = ssl.create_default_context()
         except Exception:
             ssl_context = ssl.create_default_context()
 
