@@ -28,3 +28,11 @@ Thumbs.db
 
 # 백업 파일
 *.backup
+
+# Rust
+hook-test-cli/target/
+*.exe
+!hook-test-cli/target/release/hook_test_cli.exe
+
+# Installer
+rustup-init.exe

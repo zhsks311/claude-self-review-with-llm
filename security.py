@@ -105,10 +105,18 @@ class SecurityValidator:
 
 def load_config() -> Dict[str, Any]:
     """설정 파일 로드"""
+    # 현재 디렉토리의 config.json 우선
+    local_config = Path("config.json")
+    if local_config.exists():
+        try:
+            return json.loads(local_config.read_text(encoding='utf-8'))
+        except json.JSONDecodeError:
+            pass
+
     config_path = Path("~/.claude/hooks/config.json").expanduser()
     if config_path.exists():
         try:
-            return json.loads(config_path.read_text())
+            return json.loads(config_path.read_text(encoding='utf-8'))
         except json.JSONDecodeError:
             return {}
     return {}

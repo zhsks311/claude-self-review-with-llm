@@ -106,9 +106,14 @@ class ReviewOrchestrator:
 
     def load_prompt(self, stage: str) -> str:
         """단계별 프롬프트 로드"""
+        # 로컬 prompts 디렉토리 우선
+        local_prompt = Path("prompts") / f"{stage}.txt"
+        if local_prompt.exists():
+            return local_prompt.read_text(encoding='utf-8')
+
         prompt_path = Path("~/.claude/hooks/prompts").expanduser() / f"{stage}.txt"
         if prompt_path.exists():
-            return prompt_path.read_text()
+            return prompt_path.read_text(encoding='utf-8')
 
         # 기본 프롬프트
         default_prompts = {
@@ -320,6 +325,11 @@ class ReviewOrchestrator:
 
 def main():
     """CLI 엔트리포인트"""
+    # Windows에서 UTF-8 출력 설정
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    sys.stdin = io.TextIOWrapper(sys.stdin.buffer, encoding='utf-8')
+
     # stdin에서 입력 읽기
     try:
         input_data = json.load(sys.stdin)
